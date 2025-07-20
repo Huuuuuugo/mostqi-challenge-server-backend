@@ -1,0 +1,37 @@
+<form id="cnh_form" action="/validation/cnh/" method="post" enctype="multipart/form-data">
+    <label for="cnh_front">CNH Frente:</label><br>
+    <input type="file" id="cnh_front" name="cnh_front" accept="image/*"><br><br>
+
+    <label for="cnh_back">CNH QR Code:</label><br>
+    <input type="file" id="cnh_qrcode" name="cnh_qrcode" accept="image/*"><br><br>
+
+    <button type="submit">Enviar</button>
+</form>
+<script>
+    document.getElementById('cnh_form').addEventListener('submit', function (event) {
+        event.preventDefault()
+
+        const form = event.target
+
+        const method = form.method
+        const url = form.action
+        const body = new FormData(form)
+
+        fetch(url, {
+            method: method,
+            body: body,
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                return response.json()
+            })
+            .then((data) => {
+                // redirect to the liveness test
+                window.location.href = data.liveness_url
+            }
+            )
+    })
+</script>
