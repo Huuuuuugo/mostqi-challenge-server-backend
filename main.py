@@ -9,9 +9,11 @@ import aiofiles
 import aiohttp
 import uvicorn
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, Response, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from typing import Annotated
 from jinja2 import Environment, FileSystemLoader
+
+from tasks import delete_expired_data
 
 WINDMILL_URL = "http://localhost/"
 VALIDATION_DATA_DIR = "validation_data/"
@@ -69,7 +71,7 @@ async def validation_api(
     if "error" in res_json.keys():
         print(res_json["error"])
         print(res_json["message"])
-        return Response(res_json, 502)
+        return Response(status_code=502)
 
     # save session data for posterior validation
     validation_data = {
@@ -86,11 +88,39 @@ async def validation_api(
 
 @app.get("/validation/cnh/{id}")
 async def validation_confirmation(id: str):
-    # TODO: start the step 2 validation flow using the session data corresponding to the id
-    # TODO: delete session data on first acces
-    # TODO: create task to delete session data from expired sessions
-    # TODO: redirect to success page with user name or to index page with error message
-    return HTMLResponse(id)
+    # delete expired session data files before proceeding
+    delete_expired_data()
+
+    # return a 404 error if the session data does not exist
+    validation_data_path = f"{os.path.join(VALIDATION_DATA_DIR, id)}.json"
+    if not os.path.exists(validation_data_path):
+        return JSONResponse({"message": "Session not found"}, 404)
+
+    # read session data
+    async with aiofiles.open(validation_data_path, "r", encoding="utf8") as f:
+        session_data = json.loads(await f.read())
+
+    # delete session data file
+    os.remove(validation_data_path)
+
+    # post to the second step of windmill validation flow api
+    cnh_validation_step_2_url = urljoin(WINDMILL_URL, "/api/r/cnh_validation_step_2")
+    data = {
+        "user_data": session_data["user_data"],
+        "liveness_pid": session_data["liveness_pid"],
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(cnh_validation_step_2_url, json=data) as res:
+            res_json = await res.json()
+
+    # TODO: handle api errors
+    if "error" in res_json.keys():
+        print(res_json["error"])
+        print(res_json["message"])
+        return Response(status_code=502)
+
+    template = templates.get_template("success.html")
+    return HTMLResponse(template.render({"name": session_data["user_data"]["nome"]}))
 
 
 if __name__ == "__main__":
