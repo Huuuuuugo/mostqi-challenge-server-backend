@@ -1,37 +1,166 @@
-<form id="cnh_form" action="/validation/cnh/" method="post" enctype="multipart/form-data">
-    <label for="cnh_front">CNH Frente:</label><br>
-    <input type="file" id="cnh_front" name="cnh_front" accept="image/*"><br><br>
+{% extends 'default.html' %}
 
-    <label for="cnh_back">CNH QR Code:</label><br>
-    <input type="file" id="cnh_qrcode" name="cnh_qrcode" accept="image/*"><br><br>
+{% block body %}
 
-    <button type="submit">Enviar</button>
-</form>
-<script>
-    document.getElementById('cnh_form').addEventListener('submit', function (event) {
-        event.preventDefault()
+<body>
+    <div class="flex flex-col items-center space-y-2 py-2 max-h-dvh">
+        <h1 class="text-2xl font-bold px-4">Capture uma imagem da frente da CNH</h1>
 
-        const form = event.target
+        <video class="rounded-xl object-contain overflow-hidden h-fit" id="videoElement" autoplay playsinline></video>
+        <button
+            class="flex justify-center items-center cursor-pointer rounded-full bg-green-500 hover:bg-green-700 p-2 h-max "
+            id="takePhotoButton">
+            <img class="h-[60%]" src="/static/img/capture.svg">
+        </button>
 
-        const method = form.method
-        const url = form.action
-        const body = new FormData(form)
+        <canvas id="canvasElement" style="display:none;"></canvas>
+    </div>
 
-        fetch(url, {
-            method: method,
-            body: body,
-        })
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+    <img id="outputImage" alt="Captured Image">
+    <p id="log"></p>
+    <div class="hidden">
+        <form id="cnhForm" action="/validation/cnh/" method="post" enctype="multipart/form-data">
+            <label for="cnh_front">CNH Frente:</label><br>
+            <input type="file" id="cnh_front" name="cnh_front" accept="image/*"><br><br>
 
-                return response.json()
+            <label for="cnh_back">CNH QR Code:</label><br>
+            <input type="file" id="cnh_qrcode" name="cnh_qrcode" accept="image/*"><br><br>
+
+            <button type="submit">Enviar</button>
+        </form>
+
+        <!-- script to post the form content to the cnh validation url -->
+        <script>
+            document.getElementById('cnhForm').addEventListener('submit', function (event) {
+                event.preventDefault()
+
+                const form = event.target
+
+                const method = form.method
+                const url = form.action
+                const body = new FormData(form)
+
+                fetch(url, {
+                    method: method,
+                    body: body,
+                })
+                    .then((response) => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        return response.json()
+                    })
+                    .then((data) => {
+                        // redirect to the liveness test
+                        window.location.href = data.liveness_url
+                    }
+                    )
             })
-            .then((data) => {
-                // redirect to the liveness test
-                window.location.href = data.liveness_url
+        </script>
+    </div>
+
+    <!-- script to stream camera and captue image -->
+    <script>
+        const video = document.getElementById('videoElement');
+        const takePhotoButton = document.getElementById('takePhotoButton');
+        const canvas = document.getElementById('canvasElement');
+        const outputImage = document.getElementById('outputImage');
+        let stream; // To store the media stream
+
+        // Request camera access and display the feed
+        async function startCamera() {
+            var userMediaParams = {
+                video: {
+                    facingMode: {
+                        exact: "environment" // 'environment' refers to the back camera
+                    },
+                    width: {
+                        ideal: 3840
+                    },
+                    height: {
+                        ideal: 2160
+                    }
+                }, audio: false
             }
-            )
-    })
-</script>
+            while (true) {
+                try {
+                    // Request access to the user's media input (video and audio, though we only use video)
+                    stream = await navigator.mediaDevices.getUserMedia(userMediaParams);
+
+                } catch (err) {
+                    // retry if the error was caused by a missing back camera
+                    if (err == 'OverconstrainedError' || err.name == 'OverconstrainedError') {
+                        userMediaParams = {
+                            video: {
+                                width: {
+                                    ideal: 3840
+                                },
+                                height: {
+                                    ideal: 2160
+                                }
+                            }, audio: false
+                        }
+                        continue
+                    }
+                    console.error("Error accessing the camera: ", err);
+                    alert("Could not access the camera. Please ensure you've granted permission.");
+                }
+                break
+            }
+
+            video.srcObject = stream; // Set the video element's source to the camera stream
+
+            // Log the actual video track settings
+            const videoTrack = stream.getVideoTracks()[0];
+            const capabilities = videoTrack.getCapabilities();
+            const settings = videoTrack.getSettings();
+            console.log("Video Track Capabilities:", capabilities);
+            console.log("Video Track Settings:", settings);
+
+            const log = document.getElementById('log')
+            log.innerText = `capabilities: \n  h: ${capabilities.height.max} w: ${capabilities.width.max}\n\nsessings: \n  h: ${settings.height} w: ${settings.width}`
+        }
+
+        function takePhoto() {
+            if (stream) {
+                // Set canvas dimensions to match the video feed
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                // Draw the current frame of the video onto the canvas
+                canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Get the image data from the canvas as a Data URL (base64 encoded)
+                const imageDataUrl = canvas.toDataURL('image/png'); // You can change 'image/png' to 'image/jpeg' for smaller file sizes
+                return imageDataUrl
+            } else {
+                alert("Camera not active. Please allow camera access.");
+            }
+        }
+
+        // Start the camera when the page loads
+        window.addEventListener('load', startCamera);
+
+        // Stop the camera when the page is unloaded to release resources
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+
+    <!-- script to capture images and add them to the form -->
+    <script>
+        // Take a photo when the button is clicked
+        takePhotoButton.addEventListener('click', () => {
+            const imageDataUrl = takePhoto()
+            console.log(imageDataUrl)
+            // Display the captured image
+            outputImage.src = imageDataUrl;
+            outputImage.style.display = 'block';
+        });
+    </script>
+</body>
+{% endblock body %}
+
+</html>

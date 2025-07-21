@@ -1,2 +1,8 @@
-<h2>Pressione o botão para inicar o processo de validação</h2>
-<button onclick="window.location.href = '/validation/cnh/'">Iniciar</button>
+{% extends 'default.html' %}
+{% block title %}Iniciar Teste{% endblock title %}
+
+{% block body %}
+<h2 class="text-2xl text-bold">Pressione o botão para inicar o processo de validação</h2>
+<button class="p-1 cursor-pointer rounded-xl bg-green-500 hover:bg-green-700"
+    onclick="window.location.href = '/validation/cnh/'">Iniciar</button>
+{% endblock body %}

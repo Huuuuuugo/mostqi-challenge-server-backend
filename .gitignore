@@ -6,5 +6,12 @@ dist/
 wheels/
 *.egg-info
 
+# Node generated files
+node_modules/
+
 # Virtual environments
 .venv
+
+# Project specific files
+*.pem
+output.css

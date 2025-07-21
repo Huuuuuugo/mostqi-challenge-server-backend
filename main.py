@@ -9,17 +9,19 @@ import aiofiles
 import aiohttp
 import uvicorn
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse, Response
 from typing import Annotated
 from jinja2 import Environment, FileSystemLoader
 
 from tasks import delete_expired_data
 
-WINDMILL_URL = "http://localhost/"
+WINDMILL_URL = "https://app.windmill.dev/"
+TEMPLATES_DIR = "templates/"
+STATIC_DIR = "static/"
 VALIDATION_DATA_DIR = "validation_data/"
 os.makedirs(VALIDATION_DATA_DIR, exist_ok=True)
 
-templates = Environment(loader=FileSystemLoader("templates/"))
+templates = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
 
 app = FastAPI()
 
@@ -123,9 +125,17 @@ async def validation_confirmation(id: str):
     return HTMLResponse(template.render({"name": session_data["user_data"]["nome"]}))
 
 
+@app.get("/static/{type}/{file}")
+async def static_route(type: str, file: str):
+    static_path = os.path.join(STATIC_DIR, type, file)
+    return FileResponse(static_path)
+
+
 if __name__ == "__main__":
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=6231,
+        port=443,
+        ssl_certfile="fullchain1.pem",
+        ssl_keyfile="privkey1.pem",
     )
