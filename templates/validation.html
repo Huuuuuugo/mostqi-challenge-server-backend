@@ -3,42 +3,70 @@
 {% block body %}
 
 <body>
-    <div class="flex flex-col items-center space-y-2 py-2 max-h-dvh">
-        <h1 class="text-2xl font-bold px-4">Capture uma imagem da frente da CNH</h1>
-
-        <video class="rounded-xl object-contain overflow-hidden h-fit" id="videoElement" autoplay playsinline></video>
-        <button
-            class="flex justify-center items-center cursor-pointer rounded-full bg-green-500 hover:bg-green-700 p-2 h-max "
-            id="takePhotoButton">
-            <img class="h-[60%]" src="/static/img/capture.svg">
-        </button>
-
-        <canvas id="canvasElement" style="display:none;"></canvas>
+    <div id="loading" class="hidden">
+        <div class="fixed z-20 flex flex-col gap-8 bg-white items-center justify-center h-dvh w-dvw">
+            <h1 class="text-2xl font-bold px-4">Validando dados, por favor aguarde...</h1>
+            <video class="h-[35%]" src="/static/img/loading.webm" alt="" autoplay muted loop>
+        </div>
     </div>
+    <div id="popup" class="hidden">
+        <div class="fixed z-10 flex flex-col bg-white items-center space-y-2 py-2 h-dvh w-dvw">
+            <h1 class="text-2xl font-bold px-4">A imagem ficou boa?</h1>
+            <img class="object-contain overflow-hidden h-fit" id="outputImage" alt="Captured Image">
+            <div class="flex flex-row justify-center items-center gap-4">
+                <button class="p-2 rounded-xl bg-red-500 hover:bg-red-700 cursor-pointer"
+                    onclick="closePopup()">Não</button>
+                <button class="p-2 rounded-xl bg-green-500 hover:bg-green-700 cursor-pointer"
+                    onclick="confirmImage()">Sim</button>
+            </div>
+        </div>
 
-    <img id="outputImage" alt="Captured Image">
-    <p id="log"></p>
-    <div class="hidden">
-        <form id="cnhForm" action="/validation/cnh/" method="post" enctype="multipart/form-data">
-            <label for="cnh_front">CNH Frente:</label><br>
-            <input type="file" id="cnh_front" name="cnh_front" accept="image/*"><br><br>
-
-            <label for="cnh_back">CNH QR Code:</label><br>
-            <input type="file" id="cnh_qrcode" name="cnh_qrcode" accept="image/*"><br><br>
-
-            <button type="submit">Enviar</button>
-        </form>
-
-        <!-- script to post the form content to the cnh validation url -->
+        <!-- script to capture images and add them to the form -->
         <script>
-            document.getElementById('cnhForm').addEventListener('submit', function (event) {
-                event.preventDefault()
+            var globalImageDataUrl = null
+            var cnhFormData = {
+                "cnh_front": null,
+                "cnh_qrcode": null
+            }
 
-                const form = event.target
+            // Utility function to convert Data URL to Blob
+            function dataURLtoBlob(dataurl) {
+                var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                    bstr = atob(arr[arr.length - 1]), n = bstr.length, u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                return new Blob([u8arr], { type: mime });
+            }
 
-                const method = form.method
-                const url = form.action
-                const body = new FormData(form)
+            function closePopup() {
+                const popupDiv = document.getElementById('popup')
+                popupDiv.classList.add('hidden')
+            }
+
+            function showLoading() {
+                const loadingDiv = document.getElementById('loading')
+                loadingDiv.classList.remove('hidden')
+            }
+
+            function stopCamera() {
+                if (stream) { // Check if a stream currently exists
+                    // 1. Get all media tracks from the stream
+                    stream.getTracks().forEach(track => {
+                        track.stop(); // 2. Call stop() on each individual track
+                    });
+                    video.srcObject = null; // 3. Disconnect the video element from the stream
+                    stream = null; // 4. Clear the global stream reference
+                    console.log("Camera stopped."); // For debugging
+                }
+            }
+
+            function postCnhForm() {
+                const method = "post"
+                const url = "/validation/cnh/"
+                const body = new FormData()
+                body.append('cnh_front', cnhFormData.cnh_front)
+                body.append('cnh_qrcode', cnhFormData.cnh_qrcode)
 
                 fetch(url, {
                     method: method,
@@ -56,8 +84,43 @@
                         window.location.href = data.liveness_url
                     }
                     )
-            })
+            }
+
+            function confirmImage() {
+                if (!cnhFormData.cnh_front) {
+                    const blob = dataURLtoBlob(globalImageDataUrl);
+                    const file = new File([blob], 'cnh_front.png', { type: 'image/png' });
+                    cnhFormData.cnh_front = file
+                    closePopup()
+                    console.log(cnhFormData);
+                    return
+                }
+                else if (!cnhFormData.cnh_qrcode) {
+                    const blob = dataURLtoBlob(globalImageDataUrl);
+                    const file = new File([blob], 'cnh_qrcode.png', { type: 'image/png' });
+                    cnhFormData.cnh_qrcode = file
+                    stopCamera()
+                    closePopup()
+                    showLoading()
+                    postCnhForm()
+                    console.log(cnhFormData);
+                    return
+                }
+            }
         </script>
+    </div>
+
+    <div class="flex flex-col items-center space-y-2 py-2 max-h-dvh">
+        <h1 class="text-2xl font-bold px-4">Capture uma imagem da frente da CNH</h1>
+
+        <video class="rounded-xl object-contain overflow-hidden h-fit" id="videoElement" autoplay playsinline></video>
+        <button
+            class="flex justify-center items-center cursor-pointer rounded-full bg-green-500 hover:bg-green-700 p-2 h-max lg:w-20"
+            id="takePhotoButton">
+            <img class="h-[60%]" src="/static/img/capture.svg">
+        </button>
+
+        <canvas id="canvasElement" style="display:none;"></canvas>
     </div>
 
     <!-- script to stream camera and captue image -->
@@ -147,17 +210,18 @@
                 stream.getTracks().forEach(track => track.stop());
             }
         });
-    </script>
 
-    <!-- script to capture images and add them to the form -->
-    <script>
         // Take a photo when the button is clicked
         takePhotoButton.addEventListener('click', () => {
             const imageDataUrl = takePhoto()
+            globalImageDataUrl = imageDataUrl
             console.log(imageDataUrl)
             // Display the captured image
             outputImage.src = imageDataUrl;
             outputImage.style.display = 'block';
+
+            const popupDiv = document.getElementById('popup')
+            popupDiv.classList.remove('hidden')
         });
     </script>
 </body>
