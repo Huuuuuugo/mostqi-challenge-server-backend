@@ -1,5 +1,6 @@
 from urllib.parse import urljoin
 from datetime import datetime, timedelta
+import configparser
 import base64
 import uuid
 import json
@@ -15,13 +16,19 @@ from jinja2 import Environment, FileSystemLoader
 
 from tasks import delete_expired_data
 
-WINDMILL_URL = "https://app.windmill.dev/"
-WINDMILL_WORKSPACE = "mostqi-challenge-connect"
-TEMPLATES_DIR = "templates/"
-STATIC_DIR = "static/"
+# config
+config = configparser.ConfigParser()
+config.read("config.ini")
+
+WINDMILL_URL = config["windmill"]["instance_url"]
+WINDMILL_WORKSPACE = config["windmill"]["workspace_id"]
+
+# constants
 VALIDATION_DATA_DIR = "validation_data/"
+STATIC_DIR = "static/"
 os.makedirs(VALIDATION_DATA_DIR, exist_ok=True)
 
+TEMPLATES_DIR = "templates/"
 templates = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
 
 app = FastAPI()
@@ -60,7 +67,8 @@ async def validation_api(
     cnh_qrcode_b64 = base64.encodebytes(await cnh_qrcode.read()).decode().strip()
 
     # post to the windmill validation flow api
-    cnh_validation_step_1_url = urljoin(WINDMILL_URL, f"/api/r/{WINDMILL_WORKSPACE}/cnh_validation_step_1")
+    workspace_route = f"{WINDMILL_WORKSPACE}/" if WINDMILL_WORKSPACE else ""
+    cnh_validation_step_1_url = urljoin(WINDMILL_URL, f"/api/r/{workspace_route}cnh_validation_step_1")
     data = {
         "cnh_front": cnh_front_b64,
         "cnh_qrcode": cnh_qrcode_b64,
