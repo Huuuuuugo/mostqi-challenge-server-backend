@@ -89,7 +89,7 @@
             function confirmImage() {
                 if (!cnhFormData.cnh_front) {
                     const blob = dataURLtoBlob(globalImageDataUrl);
-                    const file = new File([blob], 'cnh_front.png', { type: 'image/png' });
+                    const file = new File([blob], 'cnh_front.png', { type: 'image/jpeg' });
                     cnhFormData.cnh_front = file
                     closePopup()
                     console.log(cnhFormData);
@@ -97,7 +97,7 @@
                 }
                 else if (!cnhFormData.cnh_qrcode) {
                     const blob = dataURLtoBlob(globalImageDataUrl);
-                    const file = new File([blob], 'cnh_qrcode.png', { type: 'image/png' });
+                    const file = new File([blob], 'cnh_qrcode.png', { type: 'image/jpeg' });
                     cnhFormData.cnh_qrcode = file
                     stopCamera()
                     closePopup()
@@ -139,10 +139,10 @@
                         exact: "environment" // 'environment' refers to the back camera
                     },
                     width: {
-                        ideal: 3840
+                        ideal: 1920
                     },
                     height: {
-                        ideal: 2160
+                        ideal: 1080
                     }
                 }, audio: false
             }
@@ -157,10 +157,10 @@
                         userMediaParams = {
                             video: {
                                 width: {
-                                    ideal: 3840
+                                    ideal: 1920
                                 },
                                 height: {
-                                    ideal: 2160
+                                    ideal: 1080
                                 }
                             }, audio: false
                         }
@@ -194,7 +194,7 @@
                 canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
 
                 // Get the image data from the canvas as a Data URL (base64 encoded)
-                const imageDataUrl = canvas.toDataURL('image/png'); // You can change 'image/png' to 'image/jpeg' for smaller file sizes
+                const imageDataUrl = canvas.toDataURL('image/jpeg'); // You can change 'image/png' to 'image/jpeg' for smaller file sizes
                 return imageDataUrl
             } else {
                 alert("Camera not active. Please allow camera access.");
