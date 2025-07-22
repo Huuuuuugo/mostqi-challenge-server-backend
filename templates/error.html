@@ -1,0 +1,11 @@
+{% extends 'default.html' %}
+
+{% block title %}Falha{% endblock title %}
+{% block body %}
+<div class="flex flex-col gap-8 bg-red-200 items-center justify-center h-dvh w-dvw px-4">
+    <h1 class="text-2xl font-bold px-4">Não foi possível validar a CNH!</h1>
+    <p class="text-lg text-center">{{message}}</p>
+    <img class="h-[18%]" src="/static/img/error.svg">
+    <a class="p-2 rounded-xl bg-gray-400 hover:bg-gray-500 cursor-pointer" href="/">Tentar Novamente</a>
+</div>
+{% endblock body %}

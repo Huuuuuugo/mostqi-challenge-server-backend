@@ -1,1 +1,11 @@
-{{name}} foi autenticado com sucesso!
+{% extends 'default.html' %}
+
+{% block title %}Sucesso{% endblock title %}
+{% block body %}
+<div class="flex flex-col gap-8 bg-green-200 items-center justify-center h-dvh w-dvw px-4">
+    <h1 class="text-2xl font-bold px-4">CNH validada com sucesso!</h1>
+    <p class="text-lg text-center">Parabéns <span class="text-green-600">{{name}}</span>, sua CNH foi validada com
+        sucesso.</p>
+    <img class="h-[20%]" src="/static/img/success.svg">
+</div>
+{% endblock body %}

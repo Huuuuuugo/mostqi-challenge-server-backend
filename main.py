@@ -16,6 +16,7 @@ from jinja2 import Environment, FileSystemLoader
 from tasks import delete_expired_data
 
 WINDMILL_URL = "https://app.windmill.dev/"
+WINDMILL_WORKSPACE = "mostqi-challenge-connect"
 TEMPLATES_DIR = "templates/"
 STATIC_DIR = "static/"
 VALIDATION_DATA_DIR = "validation_data/"
@@ -59,7 +60,7 @@ async def validation_api(
     cnh_qrcode_b64 = base64.encodebytes(await cnh_qrcode.read()).decode().strip()
 
     # post to the windmill validation flow api
-    cnh_validation_step_1_url = urljoin(WINDMILL_URL, "/api/r/cnh_validation_step_1")
+    cnh_validation_step_1_url = urljoin(WINDMILL_URL, f"/api/r/{WINDMILL_WORKSPACE}/cnh_validation_step_1")
     data = {
         "cnh_front": cnh_front_b64,
         "cnh_qrcode": cnh_qrcode_b64,
@@ -69,11 +70,13 @@ async def validation_api(
         async with session.post(cnh_validation_step_1_url, json=data) as res:
             res_json = await res.json()
 
-    # TODO: handle api errors
+    # handle api errors
+    if isinstance(res_json, list):
+        res_json = res_json[0]
     if "error" in res_json.keys():
         print(res_json["error"])
         print(res_json["message"])
-        return Response(status_code=502)
+        return JSONResponse({"liveness_url": f"/error/?message={res_json['message']}"})
 
     # save session data for posterior validation
     validation_data = {
@@ -96,7 +99,9 @@ async def validation_confirmation(id: str):
     # return a 404 error if the session data does not exist
     validation_data_path = f"{os.path.join(VALIDATION_DATA_DIR, id)}.json"
     if not os.path.exists(validation_data_path):
-        return JSONResponse({"message": "Session not found"}, 404)
+        template = templates.get_template("error.html")
+        message = "Não foi possível encontrar a sessão especificada"
+        return HTMLResponse(template.render({"message": message}))
 
     # read session data
     async with aiofiles.open(validation_data_path, "r", encoding="utf8") as f:
@@ -106,7 +111,7 @@ async def validation_confirmation(id: str):
     os.remove(validation_data_path)
 
     # post to the second step of windmill validation flow api
-    cnh_validation_step_2_url = urljoin(WINDMILL_URL, "/api/r/cnh_validation_step_2")
+    cnh_validation_step_2_url = urljoin(WINDMILL_URL, f"/api/r/{WINDMILL_WORKSPACE}/cnh_validation_step_2")
     data = {
         "user_data": session_data["user_data"],
         "liveness_pid": session_data["liveness_pid"],
@@ -115,14 +120,21 @@ async def validation_confirmation(id: str):
         async with session.post(cnh_validation_step_2_url, json=data) as res:
             res_json = await res.json()
 
-    # TODO: handle api errors
+    # handle api errors
+    if isinstance(res_json, list):
+        res_json = res_json[0]
     if "error" in res_json.keys():
-        print(res_json["error"])
-        print(res_json["message"])
-        return Response(status_code=502)
+        template = templates.get_template("error.html")
+        return HTMLResponse(template.render({"message": res_json["message"]}))
 
     template = templates.get_template("success.html")
     return HTMLResponse(template.render({"name": session_data["user_data"]["nome"]}))
+
+
+@app.get("/error/")
+async def error_route(message: str):
+    template = templates.get_template("error.html")
+    return HTMLResponse(template.render({"message": message}))
 
 
 @app.get("/static/{type}/{file}")

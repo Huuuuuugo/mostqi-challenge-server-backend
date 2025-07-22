@@ -1,8 +1,10 @@
 {% extends 'default.html' %}
-{% block title %}Iniciar Teste{% endblock title %}
 
+{% block title %}Iniciar Teste{% endblock title %}
 {% block body %}
-<h2 class="text-2xl text-bold">Pressione o botão para inicar o processo de validação</h2>
-<button class="p-1 cursor-pointer rounded-xl bg-green-500 hover:bg-green-700"
-    onclick="window.location.href = '/validation/cnh/'">Iniciar</button>
+<div class="flex flex-col gap-8 bg-white-200 items-center justify-center h-dvh w-dvw px-4">
+    <h1 class="text-2xl font-bold px-4">Validação de CNH com prova de vida</h1>
+    <p class="text-lg text-center">Pressione o botão abaixo para iniciar o processo de validação da sua CNH.</p>
+    <a class="p-2 rounded-xl bg-green-600 hover:bg-green-700 cursor-pointer" href="/validation/cnh/">Iniciar Teste</a>
+</div>
 {% endblock body %}
